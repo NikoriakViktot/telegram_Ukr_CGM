@@ -18,20 +18,21 @@ class TelegramFactory:
             raise ValueError("Invalid telegram type")
 
 class Tokenizer:
+    Token = collections.namedtuple('Token', ['type', 'value'])
     pattern = r'(?P<WS>\s+)'
 
     def __init__(self, text):
         self.text = text
-        self.Token = collections.namedtuple('Token', ['type', 'value'])
 
 
-    def generate_tokens(self, pattern):
-        master_pat = re.compile(pattern)
+    def generate_tokens(self):
+        master_pat = re.compile(self.pattern)
         scanner = master_pat.scanner(self.text)
         for m in iter(scanner.match, None):
             if m.lastgroup == 'WS':
                 continue
             yield self.Token(m.lastgroup, m.group())
+
 
 class HydroTelegramTokenizer(Tokenizer):
 
@@ -61,8 +62,6 @@ class HydroTelegramTokenizer(Tokenizer):
         ]
         self.pattern = '|'.join(self.patterns)
 
-    def generate_tokens(self):
-        return super().generate_tokens(self.pattern)
 
 class HydroTelegramTokenizer966(Tokenizer):
     patterns = [
@@ -78,9 +77,6 @@ class HydroTelegramTokenizer966(Tokenizer):
     def __init__(self, text):
         super().__init__(text)
         self.pattern = '|'.join(self.patterns)
-
-    def generate_tokens(self):
-        return super().generate_tokens(self.pattern)
 
 
 class HydroTelegramTokenizer922(Tokenizer):
@@ -103,8 +99,6 @@ class HydroTelegramTokenizer922(Tokenizer):
         super().__init__(text)
         self.pattern = '|'.join(self.patterns)
 
-    def generate_tokens(self):
-        return super().generate_tokens(self.pattern)
 
 class Parser(ABC):
     def __init__(self, tokenizer):
