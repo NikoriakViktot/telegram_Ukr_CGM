@@ -31,18 +31,8 @@ class Tokenizer:
             if tok.type != 'WS':
                 yield tok
 
-
-
 class HydroTelegramTokenizer(Tokenizer):
-    patterns_966 = [
-        r'(?P<WS>\s+)',
-        r'(?P<GROUP966>966\d{2})',
-        r'(?P<GROUP1>1\d+)',
-        r'(?P<GROUP2>2\d+)',
-        r'(?P<GROUP3>3\d+)',
-        r'(?P<GROUP4>4\d+)',
-        r'(?P<GROUP5>5\d+)',
-        r'(?P<GROUP9>9\d+)']
+
     def __init__(self, text, index_station=None, date_time=None):
         super().__init__(text)
         self.patterns = [
@@ -60,17 +50,55 @@ class HydroTelegramTokenizer(Tokenizer):
             r'(?P<GROUP0>0\d{4}|0\d{3}/)',
             r'(?P<GROUP988>988\d{2}\s0\d{4}|988\d{2}\s0\d{3}/)',
             r'(?P<GROUP966>966\d{2}\s1\d+\s2\d+\s3\d+\s4\d+\s5\d+\s9\d+)',
+            r'(?P<GROUP922>922\d{2}.*)',
             r'(?P<END>=)'
         ]
         self.pattern = '|'.join(self.patterns)
-        self.patterns_966_value = '|'.join(self.patterns_966)
 
     def generate_tokens(self):
         return super().generate_tokens(self.pattern)
 
-    def generate_tokens_966(self):
-        return super().generate_tokens(self.patterns_966_value)
+class HydroTelegramTokenizer966(Tokenizer):
+    patterns = [
+        r'(?P<WS>\s+)',
+        r'(?P<GROUP966>966\d{2})',
+        r'(?P<GROUP966_1>1\d+)',
+        r'(?P<GROUP966_2>2\d+)',
+        r'(?P<GROUP966_3>3\d+)',
+        r'(?P<GROUP966_4>4\d+)',
+        r'(?P<GROUP966_5>5\d+)',
+        r'(?P<GROUP966_9>9\d+)']
 
+    def __init__(self, text):
+        super().__init__(text)
+        self.pattern = '|'.join(self.patterns)
+
+    def generate_tokens(self):
+        return super().generate_tokens(self.pattern)
+
+
+class HydroTelegramTokenizer922(Tokenizer):
+    patterns = [
+        r'(?P<WS>\s+)',
+        r'(?P<GROUP922>922\d{2})',
+        r'(?P<GROUP922_1>1\d+)',
+        r'(?P<GROUP922_2>2\d+)',
+        r'(?P<GROUP922_3>3\d+)',
+        r'(?P<GROUP922_4>4\d+|4\d{2}//|4////)',
+        r'(?P<GROUP922_5>5\d+)',
+        r'(?P<GROUP922_6>6\d+)',
+        r'(?P<GROUP922_7>7\d+)',
+        r'(?P<GROUP922_8>8\d+)',
+        r'(?P<GROUP922_0>0\d{4}|0\d{3}/)',
+        r'(?P<END>=)'
+    ]
+
+    def __init__(self, text):
+        super().__init__(text)
+        self.pattern = '|'.join(self.patterns)
+
+    def generate_tokens(self):
+        return super().generate_tokens(self.pattern)
 
 class Parser(ABC):
     def __init__(self, tokenizer):
@@ -80,10 +108,7 @@ class Parser(ABC):
         self._advance()
 
     def _advance(self):
-        if self.tokens:
-            self.tok, self.nexttok = self.nexttok, next(self.tokens, None)
-        elif  self.tokens_966:
-            self.tok, self.nexttok = self.nexttok, next(self.tokens_966, None)
+        self.tok, self.nexttok = self.nexttok, next(self.tokens, None)
 
     def _accept(self, toktype):
         if self.nexttok and self.nexttok.type == toktype:
@@ -104,8 +129,7 @@ class Parser(ABC):
     def decoder(self):
         pass
 
-
-class HydroTelegramParser(Parser):
+class TelegramParser(Parser):
     def __init__(self, tokenizer, **kwargs):
         super().__init__(tokenizer)
 
@@ -121,96 +145,207 @@ class HydroTelegramParser(Parser):
         decoder = self.decoder().create_decoder(decoder_type)
         return decoder.decode(tokvalue)
 
-    def decode_and_log_errors(self, toktype, group_value, error_log):
-        if len(group_value) != 5:
-            error_log.append(f"Error in {toktype}: incorrect token length {len(group_value)} for value {group_value}")
-            return
-        decoding_result = self.decode_token(toktype, group_value)
-        return decoding_result
-
     def handle_token_types(self, toktype, error_log):
         group_values = []
         while self._accept(toktype):
             group_value = self.tok.value
             decoding_result = self.decode_and_log_errors(toktype, group_value, error_log)
-            if decoding_result:
-                if decoding_result[1] is None:
-                    group_values.append(decoding_result[0])
-                if decoding_result[1] is not None:
-                    group_values.append(decoding_result)
+            if decoding_result and len(decoding_result) > 1 and decoding_result[1] is None:
+                group_values.append(decoding_result[0])
+            if decoding_result and len(decoding_result) > 1 and decoding_result[1] is not None:
+                group_values.append(decoding_result)
         if group_values:
             return group_values
 
-    def parse_GROUP988(self, toktype, error_log):
+    @abstractmethod
+    def get_token_types(self):
+        pass
+
+    @abstractmethod
+    def get_special_tokens(self):
+        pass
+
+class HydroTelegramParser(TelegramParser):
+    token_length = {
+        'INDEX': 5,
+        'DATE_TIME': 5,
+        'GROUP1': 5,
+        'GROUP2': 5,
+        'GROUP3': 5,
+        'GROUP4': 5,
+        'GROUP5': 5,
+        'GROUP6': 5,
+        'GROUP7': 5,
+        'GROUP8': 5,
+        'GROUP0': 5,
+        'GROUP988': 11,
+        'GROUP966': 41
+        # 'GROUP922': 41  # or whatever the correct length is
+    }
+
+    def __init__(self, tokenizer, **kwargs):
+        super().__init__(tokenizer, **kwargs)
+
+
+    def decode_and_log_errors(self, toktype, group_value, error_log):
+        if len(group_value) != self.token_length[toktype]:
+            error_log.append(f"Error in {toktype}: incorrect token length {len(group_value)} for value {group_value}")
+            return
+        decoding_result = self.decode_token(toktype, group_value)
+        return decoding_result
+
+    def get_token_types(self):
+        return ['INDEX', 'DATE_TIME', 'GROUP1', 'GROUP2', 'GROUP3', 'GROUP4', 'GROUP5', 'GROUP6', 'GROUP7',
+                'GROUP8', 'GROUP0', 'GROUP988', 'GROUP966', 'GROUP922']
+
+    def get_special_tokens(self):
+        return ['GROUP5', 'GROUP6', 'GROUP988', 'GROUP966', 'GROUP922']
+
+    def parse_token(self, toktype, expected_length, error_log):
         if self._accept(toktype):
             group_value = self.tok.value
-            if len(group_value) not in [11]:
+            if len(group_value) != expected_length:
                 error_log.append(
                     f"Error in {toktype}: incorrect token length {len(group_value)} for value {group_value}")
-                return
-            return self.decode_token(toktype, group_value)
+                return None, None
+            return group_value, self.decode_token(toktype, group_value)
 
-    def parse_GROUP966(self, toktype,error_log):
-        if self._accept(toktype):
-            group_value = self.tok.value
-            if len(group_value) not in [59] and [60]:
-                error_log.append(
-                  f"Error in {toktype}: incorrect token length {len(group_value)} for value {group_value}")
-            tokenizer = HydroTelegramTokenizer(group_value)
-            parser = Group966Parser(tokenizer)
-            print([x for x in tokenizer.generate_tokens_966()])
+    def parse_GROUP988(self, toktype, error_log):
+        _, decoded_value = self.parse_token(toktype, 11, error_log)
+        return decoded_value
+
+    def parse_group(self, toktype, expected_length, tokenizer_class, parser_class, error_log):
+        group_value, decoded_value = self.parse_token(toktype, expected_length, error_log)
+        if decoded_value is not None and tokenizer_class is not None and parser_class is not None:
+            tokenizer = tokenizer_class(group_value)
+            parser = parser_class(tokenizer)
             group_values = parser.parse()
-            return group_values
+        return group_values
 
+    def parse_GROUP966(self, toktype, error_log):
+        return self.parse_group(toktype, 41, HydroTelegramTokenizer966, Group966Parser, error_log)
+
+    # def parse_GROUP922(self, toktype, error_log):
+    #     return self.parse_group(toktype, 41, Group922Parser, error_log)
     def expr(self):
         parsed_telegram = {}
         error_log = []
-        token_types = ['INDEX', 'DATE_TIME', 'GROUP1', 'GROUP2', 'GROUP3', 'GROUP4', 'GROUP5', 'GROUP6', 'GROUP7',
-                           'GROUP8', 'GROUP0', 'GROUP988', 'GROUP966']
+        token_types = self.get_token_types()
         for toktype in token_types:
             if toktype in ['GROUP5', 'GROUP6']:
-                   parsed_telegram[toktype] = self.handle_token_types(toktype, error_log)
+                group_values = self.handle_token_types(toktype, error_log)
+                if group_values is not None:
+                    parsed_telegram[toktype] = group_values
             elif toktype == 'GROUP988':
-               parsed_telegram[toktype] = self.parse_GROUP988(toktype, error_log)
+                group_value = self.parse_GROUP988(toktype, error_log)
+                if group_value is not None:
+                    parsed_telegram[toktype] = group_value
             elif toktype == 'GROUP966':
-                parsed_telegram[toktype] = self.parse_GROUP966(toktype, error_log)
+                group_value = self.parse_GROUP966(toktype, error_log)
+                if group_value is not None:
+                    parsed_telegram[toktype] = group_value
             elif self._accept(toktype):
                 group_value = self.tok.value
                 decoding_result = self.decode_and_log_errors(toktype, group_value, error_log)
                 if decoding_result:
                     parsed_telegram[toktype] = decoding_result
-        parsed_telegram['errors'] = error_log
+                if error_log:
+                    parsed_telegram['errors'] = error_log
+
         return parsed_telegram
 
 
-class Group966Parser(Parser):
+class Group966Parser(TelegramParser):
     def __init__(self, tokenizer, **kwargs):
-        self.tokens = tokenizer.generate_tokens_966()
-        self.tok = None
-        self.nexttok = None
-        self._advance()
+        self.tokens = tokenizer.generate_tokens()
+        super().__init__(tokenizer, **kwargs)
+        self.group966_result = None
 
-    def decoder(self):
-        return DecoderFactory
+    def get_token_types(self):
+        return ['GROUP966','GROUP966_1', 'GROUP966_2', 'GROUP966_3',
+                'GROUP966_4', 'GROUP966_5', 'GROUP966_9']
 
-    def parse(self):
-        parsed_telegram = self.expr()
-        print(parsed_telegram)
-        return parsed_telegram
-
-    def decode_token(self, toktype, tokvalue, extra_argument=None):
-        decoder_type = toktype
-        decoder = self.decoder().create_decoder(decoder_type)
-        return decoder.decode(tokvalue)
+    def get_special_tokens(self):
+        return []
 
     def expr(self):
         parsed_telegram = {}
         error_log = []
-        token_types = ['GROUP1', 'GROUP2', 'GROUP3', 'GROUP4', 'GROUP5', 'GROUP9']
+        token_types = ['GROUP966','GROUP966_1', 'GROUP966_2', 'GROUP966_3',
+                       'GROUP966_4', 'GROUP966_5', 'GROUP966_9']
         for toktype in token_types:
+
             if self._accept(toktype):
                 group_value = self.tok.value
-                print(group_value)
+                decoded_value = self.decode_token(toktype, group_value)
+                if toktype == 'GROUP966':
+                    self.group966_result = decoded_value
+                elif toktype == 'GROUP966_5':
+                    decoded_value['month']=self.group966_result
+                    parsed_telegram['obs_time_mesured_dicharge'] = decoded_value
+                else:
+                    parsed_telegram.update(decoded_value)
+        return parsed_telegram
+
+class Group922Parser(TelegramParser):
+    def __init__(self, tokenizer, **kwargs):
+        self.tokens = tokenizer.generate_tokens_922()
+        super().__init__(tokenizer, **kwargs)
+
+    def get_token_types(self):
+        return ['GROUP922', 'GROUP922_1', 'GROUP922_2',
+                'GROUP922_3', 'GROUP922_4', 'GROUP922_5',
+                'GROUP922_6', 'GROUP922_7', 'GROUP922_8', 'GROUP922_0']
+
+    def get_special_tokens(self):
+        return ['GROUP922_5', 'GROUP922_6']
+
+    def expr(self):
+        parsed_telegram = super().expr()
+        return parsed_telegram
+
+# class Group922Parser(Parser):
+#
+#     def __init__(self, tokenizer, **kwargs):
+#
+#         self.tokens = tokenizer.generate_tokens_922()  # Assuming you have a generate_tokens_922 method
+#         self.tok = None
+#         self.nexttok = None
+#         self.group922_result = None
+#         self._advance()
+#
+#     def decoder(self):
+#         return DecoderFactory
+#
+#     def parse(self):
+#         parsed_telegram = self.expr()
+#         print(parsed_telegram)
+#         return parsed_telegram
+#
+#     def decode_token(self, toktype, tokvalue, extra_argument=None):
+#         decoder_type = toktype
+#         decoder = self.decoder().create_decoder(decoder_type)
+#         return decoder.decode(tokvalue)
+#
+#     def expr(self):
+#         parsed_telegram = {}
+#         error_log = []
+#         token_types = ['GROUP922', 'GROUP922_1', 'GROUP922_2',
+#                        'GROUP922_3', 'GROUP922_4', 'GROUP922_5',
+#                        'GROUP922_6', 'GROUP922_7', 'GROUP922_8', 'GROUP922_0']
+#         for toktype in token_types:
+#             if self._accept(toktype):
+#                 group_value = self.tok.value
+#                 decoded_value = self.decode_token(toktype, group_value)
+#                 if toktype == 'GROUP922':
+#                     self.group922_result = decoded_value
+#                 if toktype in ['GROUP5', 'GROUP6']:
+#                     group_values = super().handle_token_types(toktype, error_log)
+#                     if group_values is not None:
+#                         parsed_telegram[toktype] = group_values
+#
+#                 # Add more conditions if needed
+#         return parsed_telegram
 
 
 class Telegram(ABC):
@@ -240,9 +375,6 @@ class HydroTelegram(Telegram):
         parsed_data = self.parser.parse()
         return parsed_data
 
-
-
-
 class MeteoTelegram(Telegram):
     CODE_FM_12_IX_SYNOP = 'AAXX'
     Wind_speed_indicator = '1'
@@ -259,13 +391,10 @@ class MeteoTelegram(Telegram):
         return decoded_telegram
 
 
-
 class ShtormHydroTelegram(Telegram):
     def interpret(self):
         pass
      
-
-
 class AbstractDecoder(ABC):
 
     @abstractmethod
@@ -283,17 +412,13 @@ class AbstractDecoder(ABC):
        return result_dict
        
     
-
-
 class IndexStationDecoder(AbstractDecoder):
     def decode(self, value):
         return self.create_dict('value', value, 'number_basyen', value[0:2], 'number_station', value[2:])
 
-
 class ObsTimeDecoder(AbstractDecoder):
     def decode(self, value):
         return self.create_dict('value', value,'day', value[:2], 'hour', value[2:4], 'telegram_section_indicator', value[4])
-
 
 class WaterLevelDecoder(AbstractDecoder):
     
@@ -321,9 +446,6 @@ class WaterLevelDecoder(AbstractDecoder):
         except:
             return None       
                        
-
-
-
 class WaterLevelChangeDecoder(AbstractDecoder):
     def _decode_value(self, value):
         try:
@@ -340,7 +462,6 @@ class WaterLevelChangeDecoder(AbstractDecoder):
     def decode(self, value):
         return self.create_dict('value', self._decode_value(value),'unit', 'cm')
     
-
 class TemperatureDecoder(AbstractDecoder):
     def decode(self, value):
         return self.create_dict('value', value[1:], 'water_temperature', self._decode_value_water(value),
@@ -411,8 +532,6 @@ class BaseConditionDecoder(AbstractDecoder):
         result2 = create_dict(key2, None) if key1 != key2 else None
         return [result1, result2]
      
-
-
 class IcePhenomenaDecoder(BaseConditionDecoder):
 
     data_dict = {
@@ -584,26 +703,26 @@ class IceThicknessDecoder(AbstractDecoder):
         return self.create_dict(**self._decode_value_ice(value), 
                                 **self._decode_value_snow(value),
                                 **unit)
-    
-class WaterDischargeDecoder(AbstractDecoder):
-    def _decode_value(self, value):
+
+class DecoderIntegerPart:
+    def decode_value(self, value):
         try:
             match int(value[1]):
-                case 0: return float(int(value[2:5])/1000)
-                case 1: return float(int(value[2:5])/100)
-                case 2: return float((int(value[2:5]))/10)
+                case 0: return float(int(value[2:5]) / 1000)
+                case 1: return float(int(value[2:5]) / 100)
+                case 2: return float((int(value[2:5])) / 10)
                 case 3: return float(value[2:5])
-                case 4: return float(int(value[2:5])*10)
-                case 5: return float(int(value[2:5])*100)
+                case 4: return float(int(value[2:5]) * 10)
+                case 5: return float(int(value[2:5]) * 100)
                 case _: return None
         except:
             return None
-     
+
+class WaterDischargeDecoder(AbstractDecoder, DecoderIntegerPart):
 
     def decode(self, value):
-        return self.create_dict('value', self._decode_value(value),
+        return self.create_dict('value', self.decode_value(value),
                                 'unit', 'm³/s')
-       
 
 class PrecipitationMixin:
 
@@ -639,13 +758,11 @@ class DailyPrecipitationDecoder(PrecipitationMixin, AbstractDecoder):
     def decode(self, value):
         precip_value = self.precipitation_decode(value)
         precip_intens_value = self.precip_intens_decode(value)
-        return self.create_dict('value', value, 
+        return self.create_dict('value_telegram', value,
                                 'precipitation', precip_value,
                                 'precipitation_intensity', precip_intens_value,
                                 'unit', 'mm')
      
-
-
 class DailyDaytimePrecipitationDecoder(PrecipitationMixin, AbstractDecoder):
       
     def get_precip_day_group(self, value):
@@ -657,20 +774,41 @@ class DailyDaytimePrecipitationDecoder(PrecipitationMixin, AbstractDecoder):
         precip_value = self.precipitation_decode(self.get_precip_day_group(value)[1])
         precip_intens_value = self.precip_intens_decode(self.get_precip_day_group(value)[1])
         precipitation_date = self.get_precip_day_group(value)[0][3:5]
-        return self.create_dict('value', value,
+        return self.create_dict('value_telegram', value,
                                 'precipitation_date', precipitation_date, 
                                 'precipitation_time_measured', '20:00',
                                 'precipitation', precip_value,
                                 'precipitation_intensity', precip_intens_value,
                                 'unit', 'mm')
      
-
-
 class MeasuredWaterDischargeDecoder(AbstractDecoder):
-    def decode(self, value):
-        pass
-        # return decoded_value
 
+    def decode(self, value):
+        month = value[3:5]
+        return month
+
+class ObsTimeMesuredDichargeDecoder(AbstractDecoder):
+
+    def decode(self, value):
+        return {'month': None,
+            'day':value[1:3],
+                'hour': value[3:5]}
+
+class AreaWaterSectionDecoder(AbstractDecoder, DecoderIntegerPart):
+
+    def decode(self, value):
+        return self.create_dict('value', self.decode_value(value),
+                                'unit', 'm²')
+
+class MaxDeepRiverDecoder(AbstractDecoder):
+
+    def decode(self, value):
+        return self.create_dict('value', int(value[1:]), 'unit', 'cm')
+
+class MaxSpeedFlowingDecoder(AbstractDecoder, DecoderIntegerPart):
+
+    def decode(self, value):
+        return self.create_dict('value', self.decode_value(value), 'unit', 'm/s' )
 
 class MeteoDecoder(AbstractDecoder):
 
@@ -695,8 +833,13 @@ class DecoderFactory:
             'GROUP8': WaterDischargeDecoder,
             'GROUP0': DailyPrecipitationDecoder,
             'GROUP988': DailyDaytimePrecipitationDecoder,
-            'GROUP966': MeasuredWaterDischargeDecoder
-            }
+            'GROUP966': MeasuredWaterDischargeDecoder,
+            'GROUP966_1': WaterLevelDecoder,
+            'GROUP966_2': WaterDischargeDecoder,
+            'GROUP966_3': AreaWaterSectionDecoder,
+            'GROUP966_4': MaxDeepRiverDecoder,
+            'GROUP966_5': ObsTimeMesuredDichargeDecoder,
+            'GROUP966_9': MaxSpeedFlowingDecoder }
     
     
     @classmethod
@@ -708,11 +851,10 @@ class DecoderFactory:
             raise ValueError(f"Decoder type '{type_decoder}' not recognized")
         
 
-
 d ={'date_telegram': '2023-06-04', 
     'time_telegram': '08:00:00', 
     'index_station': '81041',
-    'gauges_telegram': '81041 04081 10262 20062 30265 41212 51910 82980 0000/ 98803 0000/ 96606 11223 23555 34555 46666 55555 99999='}
+    'gauges_telegram': '81041 04081 10262 20062 30265 41212 51910 56565 51305 82980 09911 98803 00023 96606 15042 20650 31725 40075 50714 90210='}
 m = {'date_telegram': '2023-06-04', 
     'time_telegram': '08:00:00', 
     'index_station': '81041',
