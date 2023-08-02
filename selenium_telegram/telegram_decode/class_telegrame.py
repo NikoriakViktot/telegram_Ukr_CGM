@@ -18,6 +18,8 @@ class TelegramFactory:
             raise ValueError("Invalid telegram type")
 
 class Tokenizer:
+    pattern = r'(?P<WS>\s+)'
+
     def __init__(self, text):
         self.text = text
         self.Token = collections.namedtuple('Token', ['type', 'value'])
@@ -27,14 +29,18 @@ class Tokenizer:
         master_pat = re.compile(pattern)
         scanner = master_pat.scanner(self.text)
         for m in iter(scanner.match, None):
-            tok = self.Token(m.lastgroup, m.group())
-            if tok.type != 'WS':
-                yield tok
+            if m.lastgroup == 'WS':
+                continue
+            yield self.Token(m.lastgroup, m.group())
 
 class HydroTelegramTokenizer(Tokenizer):
 
     def __init__(self, text, index_station=None, date_time=None):
         super().__init__(text)
+        self._setup_paterns(index_station,date_time)
+
+
+    def _setup_paterns(self, index_station=None, date_time=None):
         self.patterns = [
             r'(?P<WS>\s+)',
             r'(?P<INDEX>{})'.format(index_station),
@@ -257,8 +263,8 @@ class HydroTelegramParser(TelegramParser):
 
 class Group966Parser(TelegramParser):
     def __init__(self, tokenizer, **kwargs):
-        self.tokens = tokenizer.generate_tokens()
         super().__init__(tokenizer, **kwargs)
+        self.tokens = tokenizer.generate_tokens()
         self.group966_result = None
 
     def get_token_types(self):
@@ -289,8 +295,9 @@ class Group966Parser(TelegramParser):
 
 class Group922Parser(TelegramParser):
     def __init__(self, tokenizer, **kwargs):
-        self.tokens = tokenizer.generate_tokens_922()
         super().__init__(tokenizer, **kwargs)
+        self.tokens = tokenizer.generate_tokens()
+        self.group922_result = None
 
     def get_token_types(self):
         return ['GROUP922', 'GROUP922_1', 'GROUP922_2',
@@ -363,7 +370,6 @@ class Telegram(ABC):
     def decode_telegram(self):
         pass
 
-
 class HydroTelegram(Telegram):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -390,7 +396,6 @@ class MeteoTelegram(Telegram):
         decoded_telegram = self.decoder_type.decode(telegram)
         return decoded_telegram
 
-
 class ShtormHydroTelegram(Telegram):
     def interpret(self):
         pass
@@ -411,7 +416,7 @@ class AbstractDecoder(ABC):
             result_dict[key][k] = v
        return result_dict
        
-    
+
 class IndexStationDecoder(AbstractDecoder):
     def decode(self, value):
         return self.create_dict('value', value, 'number_basyen', value[0:2], 'number_station', value[2:])
