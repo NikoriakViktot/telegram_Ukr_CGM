@@ -28,10 +28,10 @@ class Tokenizer:
     def generate_tokens(self):
         master_pat = re.compile(self.pattern)
         scanner = master_pat.scanner(self.text)
-        for m in iter(scanner.match, None):
-            if m.lastgroup == 'WS':
+        for match_scaner in iter(scanner.match, None):
+            if match_scaner.lastgroup == 'WS':
                 continue
-            yield self.Token(m.lastgroup, m.group())
+            yield self.Token(match_scaner.lastgroup, match_scaner.group())
 
 
 class HydroTelegramTokenizer(Tokenizer):
@@ -140,7 +140,7 @@ class TelegramParser(Parser):
         parsed_telegram = self.expr()
         return parsed_telegram
 
-    def decode_token(self, toktype, tokvalue, extra_argument=None):
+    def decode_token(self, toktype, tokvalue):
         decoder_type = toktype
         decoder = self.decoder().create_decoder(decoder_type)
         return decoder.decode(tokvalue)
@@ -166,6 +166,7 @@ class TelegramParser(Parser):
         pass
 
 class HydroTelegramParser(TelegramParser):
+
     token_length = {
         'INDEX': 5,
         'DATE_TIME': 5,
