@@ -56,8 +56,6 @@ class HydroTelegramTokenizer(Tokenizer):
             r'(?P<GROUP8>8\d+)',
             r'(?P<GROUP0>0\d{4}|0\d{3}/)',
             r'(?P<GROUP988>988\d{2}\s0\d{4}|988\d{2}\s0\d{3}/)',
-            r'(?P<GROUP966>966\d{2}\s1\d+\s2\d+\s3\d+\s4\d+\s5\d+\s9\d+)',
-            r'(?P<GROUP922>922\d{2}.*)',
             r'(?P<END>=)'
         ]
         self.pattern = '|'.join(self.patterns)
@@ -91,14 +89,12 @@ class HydroTelegramTokenizer922(Tokenizer):
         r'(?P<GROUP922_6>6\d+)',
         r'(?P<GROUP922_7>7\d+)',
         r'(?P<GROUP922_8>8\d+)',
-        r'(?P<GROUP922_0>0\d{4}|0\d{3}/)',
-        r'(?P<END>=)'
+        r'(?P<GROUP922_0>0\d{4}|0\d{3}/)'
     ]
 
     def __init__(self, text):
         super().__init__(text)
         self.pattern = '|'.join(self.patterns)
-
 
 class Parser(ABC):
     def __init__(self, tokenizer):
@@ -130,6 +126,8 @@ class Parser(ABC):
         pass
 
 class TelegramParser(Parser):
+    token_length = {}
+
     def __init__(self, tokenizer, **kwargs):
         super().__init__(tokenizer)
 
@@ -144,6 +142,13 @@ class TelegramParser(Parser):
         decoder_type = toktype
         decoder = self.decoder().create_decoder(decoder_type)
         return decoder.decode(tokvalue)
+
+    def decode_and_log_errors(self, toktype, group_value, error_log):
+        if len(group_value) != self.token_length[toktype]:
+            error_log.append(f"Error in {toktype}: incorrect token length {len(group_value)} for value {group_value}")
+            return
+        decoding_result = self.decode_token(toktype, group_value)
+        return decoding_result
 
     def handle_token_types(self, toktype, error_log):
         group_values = []
@@ -165,6 +170,32 @@ class TelegramParser(Parser):
     def get_special_tokens(self):
         pass
 
+    def parse_token(self, toktype, expected_length, error_log):
+        if self._accept(toktype):
+            group_value = self.tok.value
+            if len(group_value) != expected_length:
+                error_log.append(
+                    f"Error in {toktype}: incorrect token length {len(group_value)} for value {group_value}")
+                return None, None
+            return group_value, self.decode_token(toktype, group_value)
+    def expr(self):
+        parsed_telegram = {}
+        error_log = []
+        token_types = self.get_token_types()
+        for toktype in token_types:
+            if toktype in self.get_special_tokens():
+                group_values = self.handle_token_types(toktype, error_log)
+                if group_values is not None:
+                    parsed_telegram[toktype] = group_values
+            elif self._accept(toktype):
+                group_value = self.tok.value
+                decoding_result = self.decode_and_log_errors(toktype, group_value, error_log)
+                if decoding_result:
+                    parsed_telegram[toktype] = decoding_result
+                if error_log:
+                    parsed_telegram['errors'] = error_log
+        return parsed_telegram
+
 class HydroTelegramParser(TelegramParser):
 
     token_length = {
@@ -180,86 +211,38 @@ class HydroTelegramParser(TelegramParser):
         'GROUP8': 5,
         'GROUP0': 5,
         'GROUP988': 11,
-        'GROUP966': 41
-        # 'GROUP922': 41  # or whatever the correct length is
     }
 
     def __init__(self, tokenizer, **kwargs):
         super().__init__(tokenizer, **kwargs)
 
 
-    def decode_and_log_errors(self, toktype, group_value, error_log):
-        if len(group_value) != self.token_length[toktype]:
-            error_log.append(f"Error in {toktype}: incorrect token length {len(group_value)} for value {group_value}")
-            return
-        decoding_result = self.decode_token(toktype, group_value)
-        return decoding_result
-
     def get_token_types(self):
         return ['INDEX', 'DATE_TIME', 'GROUP1', 'GROUP2', 'GROUP3', 'GROUP4', 'GROUP5', 'GROUP6', 'GROUP7',
-                'GROUP8', 'GROUP0', 'GROUP988', 'GROUP966', 'GROUP922']
+                'GROUP8', 'GROUP0', 'GROUP988']
 
     def get_special_tokens(self):
-        return ['GROUP5', 'GROUP6', 'GROUP988', 'GROUP966', 'GROUP922']
-
-    def parse_token(self, toktype, expected_length, error_log):
-        if self._accept(toktype):
-            group_value = self.tok.value
-            if len(group_value) != expected_length:
-                error_log.append(
-                    f"Error in {toktype}: incorrect token length {len(group_value)} for value {group_value}")
-                return None, None
-            return group_value, self.decode_token(toktype, group_value)
+        return ['GROUP5', 'GROUP6', 'GROUP988']
 
     def parse_GROUP988(self, toktype, error_log):
         _, decoded_value = self.parse_token(toktype, 11, error_log)
         return decoded_value
 
-    def parse_group(self, toktype, expected_length, tokenizer_class, parser_class, error_log):
-        group_value, decoded_value = self.parse_token(toktype, expected_length, error_log)
-        if decoded_value is not None and tokenizer_class is not None and parser_class is not None:
-            tokenizer = tokenizer_class(group_value)
-            parser = parser_class(tokenizer)
-            group_values = parser.parse()
-        return group_values
-
-    def parse_GROUP966(self, toktype, error_log):
-        return self.parse_group(toktype, 41, HydroTelegramTokenizer966, Group966Parser, error_log)
-
-    # def parse_GROUP922(self, toktype, error_log):
-    #     return self.parse_group(toktype, 41, Group922Parser, error_log)
-    def expr(self):
-        parsed_telegram = {}
-        error_log = []
-        token_types = self.get_token_types()
-        for toktype in token_types:
-            if toktype in ['GROUP5', 'GROUP6']:
-                group_values = self.handle_token_types(toktype, error_log)
-                if group_values is not None:
-                    parsed_telegram[toktype] = group_values
-            elif toktype == 'GROUP988':
-                group_value = self.parse_GROUP988(toktype, error_log)
-                if group_value is not None:
-                    parsed_telegram[toktype] = group_value
-            elif toktype == 'GROUP966':
-                group_value = self.parse_GROUP966(toktype, error_log)
-                if group_value is not None:
-                    parsed_telegram[toktype] = group_value
-            elif self._accept(toktype):
-                group_value = self.tok.value
-                decoding_result = self.decode_and_log_errors(toktype, group_value, error_log)
-                if decoding_result:
-                    parsed_telegram[toktype] = decoding_result
-                if error_log:
-                    parsed_telegram['errors'] = error_log
-
-        return parsed_telegram
 
 
 class Group966Parser(TelegramParser):
+    token_length = {
+        'GROUP966': 5,
+        'GROUP966_1': 5,
+        'GROUP966_2': 5,
+        'GROUP966_3': 5,
+        'GROUP966_4': 5,
+        'GROUP966_5': 5,
+        'GROUP966_9': 5,
+          }
+
     def __init__(self, tokenizer, **kwargs):
         super().__init__(tokenizer, **kwargs)
-        self.tokens = tokenizer.generate_tokens()
         self.group966_result = None
 
     def get_token_types(self):
@@ -272,10 +255,7 @@ class Group966Parser(TelegramParser):
     def expr(self):
         parsed_telegram = {}
         error_log = []
-        token_types = ['GROUP966','GROUP966_1', 'GROUP966_2', 'GROUP966_3',
-                       'GROUP966_4', 'GROUP966_5', 'GROUP966_9']
-        for toktype in token_types:
-
+        for toktype in self.get_token_types():
             if self._accept(toktype):
                 group_value = self.tok.value
                 decoded_value = self.decode_token(toktype, group_value)
@@ -289,66 +269,29 @@ class Group966Parser(TelegramParser):
         return parsed_telegram
 
 class Group922Parser(TelegramParser):
+    token_length = {
+        'GROUP922': 5,
+        'GROUP922_1': 5,
+        'GROUP922_2': 5,
+        'GROUP922_3': 5,
+        'GROUP922_4': 5,
+        'GROUP922_5': 5,
+        'GROUP922_6': 5,
+        'GROUP922_7': 5,
+        'GROUP922_8': 5,
+        'GROUP922_0': 5,
+    }
+
     def __init__(self, tokenizer, **kwargs):
         super().__init__(tokenizer, **kwargs)
-        self.tokens = tokenizer.generate_tokens()
-        self.group922_result = None
 
     def get_token_types(self):
-        return ['GROUP922', 'GROUP922_1', 'GROUP922_2',
-                'GROUP922_3', 'GROUP922_4', 'GROUP922_5',
-                'GROUP922_6', 'GROUP922_7', 'GROUP922_8', 'GROUP922_0']
+        return ['GROUP922', 'GROUP922_1', 'GROUP922_2', 'GROUP922_3',
+                'GROUP922_4', 'GROUP922_5', 'GROUP922_6',
+                'GROUP922_7', 'GROUP922_8', 'GROUP922_0']
 
     def get_special_tokens(self):
         return ['GROUP922_5', 'GROUP922_6']
-
-    def expr(self):
-        parsed_telegram = super().expr()
-        return parsed_telegram
-
-# class Group922Parser(Parser):
-#
-#     def __init__(self, tokenizer, **kwargs):
-#
-#         self.tokens = tokenizer.generate_tokens_922()  # Assuming you have a generate_tokens_922 method
-#         self.tok = None
-#         self.nexttok = None
-#         self.group922_result = None
-#         self._advance()
-#
-#     def decoder(self):
-#         return DecoderFactory
-#
-#     def parse(self):
-#         parsed_telegram = self.expr()
-#         print(parsed_telegram)
-#         return parsed_telegram
-#
-#     def decode_token(self, toktype, tokvalue, extra_argument=None):
-#         decoder_type = toktype
-#         decoder = self.decoder().create_decoder(decoder_type)
-#         return decoder.decode(tokvalue)
-#
-#     def expr(self):
-#         parsed_telegram = {}
-#         error_log = []
-#         token_types = ['GROUP922', 'GROUP922_1', 'GROUP922_2',
-#                        'GROUP922_3', 'GROUP922_4', 'GROUP922_5',
-#                        'GROUP922_6', 'GROUP922_7', 'GROUP922_8', 'GROUP922_0']
-#         for toktype in token_types:
-#             if self._accept(toktype):
-#                 group_value = self.tok.value
-#                 decoded_value = self.decode_token(toktype, group_value)
-#                 if toktype == 'GROUP922':
-#                     self.group922_result = decoded_value
-#                 if toktype in ['GROUP5', 'GROUP6']:
-#                     group_values = super().handle_token_types(toktype, error_log)
-#                     if group_values is not None:
-#                         parsed_telegram[toktype] = group_values
-#
-#                 # Add more conditions if needed
-#         return parsed_telegram
-
 
 class Telegram(ABC):
 
@@ -366,15 +309,43 @@ class Telegram(ABC):
         pass
 
 class HydroTelegram(Telegram):
+    GROUP922_pattern = r'(?=922\d{2})'
+    GROUP922_sequence_pattern = r'(922\d{2}(?:\s\d+)*(?=\s922|\s(?:933|944|955|966|=)|$)+)'
+    GROUP966_pattern = r'(?P<GROUP966>966\d{2}\s1\d+\s2\d+\s3\d+\s4\d+\s5\d+\s9\d+)'
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.tokenizer = HydroTelegramTokenizer(self.gauges_telegram, self.index_station, self.date_time)
+        self.group966_text = self.extract_group(self.gauges_telegram, self.GROUP966_pattern)
+
+    def extract_group(self, telegram_text, pattern):
+        match = re.search(pattern, telegram_text)
+        return match.group(1) if match else None
+
+    def extract_groups(self):
+        full_match = re.search(self.GROUP922_sequence_pattern, self.gauges_telegram)
+        if full_match:
+            full_sequence = full_match.group(1)
+            group922_texts = re.split(self.GROUP922_pattern, full_sequence)
+            group922_texts = [text.strip() for text in group922_texts if text.strip()]
+            return group922_texts
 
 
     def decode_telegram(self):
-        self.parser = HydroTelegramParser(self.tokenizer)
-        parsed_data = self.parser.parse()
+        main_parser = HydroTelegramParser(self.tokenizer)
+        parsed_data = main_parser.parse()
+        if self.group966_text:
+            token966 = HydroTelegramTokenizer966(self.group966_text)
+            group966_parser = Group966Parser(token966)
+            parsed_data["GROUP966"] = group966_parser.parse()
+        parsed_data["GROUP922"] = []
+        for group922_text in self.extract_groups():
+            token922 = HydroTelegramTokenizer922(group922_text)
+            group922_parser = Group922Parser(token922)
+            parsed_data["GROUP922"].append(group922_parser.parse())
         return parsed_data
+
+
 
 class MeteoTelegram(Telegram):
     CODE_FM_12_IX_SYNOP = 'AAXX'
@@ -810,6 +781,13 @@ class MaxSpeedFlowingDecoder(AbstractDecoder, DecoderIntegerPart):
     def decode(self, value):
         return self.create_dict('value', self.decode_value(value), 'unit', 'm/s' )
 
+class Group922Decoder(AbstractDecoder):
+
+    def decode(self, value):
+        day = value[3:5]
+        return {f'observ_date_{day}': {'day': day}}
+
+
 class MeteoDecoder(AbstractDecoder):
 
     def __init__(self):
@@ -839,7 +817,18 @@ class DecoderFactory:
             'GROUP966_3': AreaWaterSectionDecoder,
             'GROUP966_4': MaxDeepRiverDecoder,
             'GROUP966_5': ObsTimeMesuredDichargeDecoder,
-            'GROUP966_9': MaxSpeedFlowingDecoder }
+            'GROUP966_9': MaxSpeedFlowingDecoder,
+            'GROUP922': Group922Decoder,
+            'GROUP922_1': WaterLevelDecoder,
+            'GROUP922_2': WaterLevelChangeDecoder,
+            'GROUP922_3': WaterLevelDecoder,
+            'GROUP922_4': TemperatureDecoder,
+            'GROUP922_5': IcePhenomenaDecoder,
+            'GROUP922_6': WaterBodyConditionDecoder,
+            'GROUP922_7': IceThicknessDecoder,
+            'GROUP922_8': WaterDischargeDecoder,
+            'GROUP922_0': DailyPrecipitationDecoder
+     }
     
     
     @classmethod
@@ -847,14 +836,17 @@ class DecoderFactory:
         decoder_class = cls.decoders.get(type_decoder)
         if decoder_class:
             return decoder_class()
+        elif type_decoder == 'END':
+            pass
+
         else:
             raise ValueError(f"Decoder type '{type_decoder}' not recognized")
-        
 
-d ={'date_telegram': '2023-06-04', 
+
+d ={'date_telegram': '2023-06-04',
     'time_telegram': '08:00:00', 
     'index_station': '81041',
-    'gauges_telegram': '81041 04081 10262 20062 30265 41212 51910 56565 51305 82980 09911 98803 00023 96606 15042 20650 31725 40075 50714 90210='}
+    'gauges_telegram': '81041 04081 10262 20062 30265 41212 51910 56565 51305 82980 09911 98803 00023 92203 10012 20001 30022 92202 10012 20001 30022 96606 15042 20650 31725 40075 50714 90210='}
 m = {'date_telegram': '2023-06-04', 
     'time_telegram': '08:00:00', 
     'index_station': '81041',
@@ -863,7 +855,7 @@ import pprint
 
 telegram_obj = TelegramFactory.create_telegram('hydro', **d)
 decoded_telegram = telegram_obj.decode_telegram()
-pprint.pprint([x for x in telegram_obj.tokenizer.generate_tokens()])
+# pprint.pprint([x for x in telegram_obj.tokenizer.generate_tokens()])
 pprint.pprint(decoded_telegram)
 # telegram_obj_m = TelegramFactory.create_telegram('meteo', **m)
 # decoded_telegram_n = telegram_obj_m.decode_telegram()
