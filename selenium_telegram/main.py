@@ -6,15 +6,13 @@ import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import requests
-
-from driver_selenium.soup_read_file import SoupHtmlFile
-from driver_selenium.class_driver import TelegramParser
-from redis_tools.tools import RedisTools
 from pymongo import MongoClient
 
 
-# Підключення до Redis
-redis = RedisTools
+from driver_selenium.soup_read_file import SoupHtmlFile
+from driver_selenium.class_driver import TelegramParser
+
+
 MONGO_URL='mongodb://mongo:27017/'
 client = MongoClient(MONGO_URL)
 db = client["telegram"]
