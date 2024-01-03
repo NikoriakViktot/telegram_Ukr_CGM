@@ -25,7 +25,7 @@ class DatabaseManager:
         collection = self.db[type_telegram]
         docs = collection.find({"index_station": index_station, "date_telegram": date})
         for doc in docs:
-            print(doc)  # or do something else with the document
+            print(doc)
     
     def insert_or_update_document(self, collection, document):
         existing_doc = collection.find_one({"id_telegram": document["id_telegram"]})
@@ -40,7 +40,6 @@ class DatabaseManager:
                 collection.insert_one(document)
             except DuplicateKeyError:
                 print(f"Document with id {document['id_telegram']} already exists.")    
-
 
 
 class MongoDb:
@@ -61,60 +60,3 @@ class MongoDb:
         self.db_manager.get_telegrams(type_telegram, index_station, date)
 
     
-
-# class MongoDb:
-#     MONGO_URL='mongodb://mongo:27017/'
-#     client = MongoClient(MONGO_URL)
-#     db = client["telegram"]
-     
-     
-#     def __init__(self, type_telegram):
-#         self.type_telegram = type_telegram
-
-
-
-#     def save_document(self):
-#         file_html = SoupHtmlFile()
-#         type_telegram = self.type_telegram
-#         if type_telegram in self.db.list_collection_names():
-#             collection = self.db[type_telegram]
-#         else:
-#             collection = self.db.create_collection(type_telegram)
-#         for report_today in file_html.report():
-#             id_teleg = report_today.id_telegrame
-#             date_tel = report_today.date_telegram
-#             time_teleg = report_today.time_telegram
-#             index_post = report_today.index_station
-#             text_telegram = report_today.gauges_telegrame 
-#             data_telegram = {
-#                 "id_teleg": id_teleg,
-#                 "date_telegram": date_tel,
-#                 "time_telegram": time_teleg,
-#                 "index_station": index_post,
-#                 "gauges_telegram": text_telegram}
-#             if type_telegram == 'hydro':
-#                 decode_tel = KC15(data_telegram)
-#                 mesured_data = decode_tel.report_dict()
-#             else:
-#                 mesured_data = None    
-#             document_mongo = {
-#             "id_telegram": id_teleg,
-#             "data": [data_telegram, mesured_data]}
-#             get_id = collection.find_one({"id_telegram": id_teleg})
-#             if get_id is None:
-#                 collection.insert_one(document_mongo)
-
-#     def get_water_level(self, id_telegram):
-#         collection = self.db[self.type_telegram]
-#         doc = collection.find_one({"id_telegram": id_telegram})
-#         water_level = doc["data"][1]["water_level"]
-#         return water_level
-
-#     def get_telegrams(self, index_station, date):
-#         collection = self.db[self.type_telegram]
-#         # Notice that we use find() here instead of find_one()
-#         docs = collection.find({"index_station": index_station, "date_telegram": date})
-#         for doc in docs:
-#             print(doc)  # or do something else with the document
-    
-            

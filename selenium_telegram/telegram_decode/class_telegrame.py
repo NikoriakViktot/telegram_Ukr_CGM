@@ -3,9 +3,8 @@ from abc import ABC, abstractmethod
 import collections
 from pymetdecoder import synop as s
 
-
 class TelegramFactory:
-    
+
     @staticmethod
     def create_telegram(type_telegram, **telegram):
         if type_telegram == 'hydro':

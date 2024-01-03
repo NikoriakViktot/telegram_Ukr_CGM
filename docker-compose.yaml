@@ -21,66 +21,13 @@ services:
     networks:
       - mynetwork
     command:  sh -c "uvicorn main:app --reload --host 0.0.0.0"
-  
-#  listenin_api:
-#    build:
-#      context: ./telegram_listener
-#      dockerfile: Dockerfile
-#    restart: always
-#    ports:
-#      - "8002:8000"
-#    volumes:
-#     - ./telegram_listener:/app
-#
-#    depends_on:
-#      - app_selenium
-#
-#    environment:
-#      - PYTHONDONTWRITEBYTECODE=1
-#      - DATABASE_URL=postgresql://postgres:password@db:5432/db
-#      - REDIS_URL=redis://redis:6379/0
-#    networks:
-#      - mynetwork
-#    # command: sh -c "uvicorn main:app --reload --host 0.0.0.0"
-#    command:  sh -c "python main.py"
 
-  db:
-    image: postgres:13-alpine
-    environment:
-      POSTGRES_DB: db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-    volumes:
-      - db-data:/var/lib/postgresql/data/
-    networks:
-      - mynetwork
-
-
-  redis:
-    image: redis:6-alpine
-    volumes:
-      - redis-data:/data/
-    networks:
-      - mynetwork
-  
   mongo:
     image: mongo:4.4
     volumes:
       - mongo-data:/data/db
     networks:
       - mynetwork
-
-
-
-#  frontend:
-#    build:
-#      context: ./frontend
-#      dockerfile: Dockerfile
-#    volumes:
-#      - .:/app
-#    ports:
-#      - "8080:8080"
-
 networks:
   mynetwork:
     driver: bridge

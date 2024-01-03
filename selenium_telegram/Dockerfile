@@ -1,17 +1,5 @@
 FROM python:3.10
 
-## install google chrome
-#RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-#    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'\
-#    && apt-get -y update\
-#    && apt-get install -y google-chrome-stable
-#
-## install chromedriver
-#
-#RUN apt-get install -yqq unzip\
-#    && wget -O /tmp/chromedriver.zip http://chromedriver.storage.googleapis.com/`curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE`/chromedriver_linux64.zip\
-#    && unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/
-
 # Download and install required dependencies
 RUN apt-get update \
     && apt-get install -y fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 libnspr4 libnss3 libu2f-udev libvulkan1 libxcomposite1 libxdamage1 libxfixes3 libxkbcommon0 libxrandr2 xdg-utils
@@ -27,7 +15,6 @@ RUN apt-get install -yqq unzip \
     && unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/ \
     && rm /tmp/chromedriver.zip
 
-
 # upgrade pip
 RUN mkdir -p /opt/code
 WORKDIR /opt/code
@@ -40,7 +27,6 @@ COPY /requirements.txt /opt/code
 RUN pip install  --no-cache-dir -r /opt/code/requirements.txt
 
 #WORKDIR /app
-
 ENV LANG C.UTF-8
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONPATH "${PYTHONPATH}:$(pwd)"
