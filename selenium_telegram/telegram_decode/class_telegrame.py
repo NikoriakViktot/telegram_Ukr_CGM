@@ -309,8 +309,12 @@ class Telegram(ABC):
         pass
 
 class HydroTelegram(Telegram):
-    GROUP922_pattern = r'(?=922\d{2})'
-    GROUP922_sequence_pattern = r'(922\d{2}(?:\s\d+)*(?=\s922|\s(?:933|944|955|966|=)|$)+)'
+    # GROUP922_pattern = r'922\d{2}'
+    GROUP922_pattern = r'\b922\d{2}\b'
+
+    GROUP922_sequence_pattern = r'(?:\s|^)({pattern}(?:\s\d+)*)(?=\s(?:922|\d|=$))'
+
+    # GROUP922_sequence_pattern = r'(922\d{2}(?:\s\d+)*(?=\s922|\s(?:933|944|955|966|=)|$)+)'
     GROUP966_pattern = r'(?P<GROUP966>966\d{2}\s1\d+\s2\d+\s3\d+\s4\d+\s5\d+\s9\d+)'
 
     def __init__(self, **kwargs):
@@ -329,6 +333,9 @@ class HydroTelegram(Telegram):
             group922_texts = re.split(self.GROUP922_pattern, full_sequence)
             group922_texts = [text.strip() for text in group922_texts if text.strip()]
             return group922_texts
+        else:
+            return []
+
 
 
     def decode_telegram(self):
@@ -338,11 +345,11 @@ class HydroTelegram(Telegram):
             token966 = HydroTelegramTokenizer966(self.group966_text)
             group966_parser = Group966Parser(token966)
             parsed_data["GROUP966"] = group966_parser.parse()
-        parsed_data["GROUP922"] = []
-        for group922_text in self.extract_groups():
-            token922 = HydroTelegramTokenizer922(group922_text)
-            group922_parser = Group922Parser(token922)
-            parsed_data["GROUP922"].append(group922_parser.parse())
+        # parsed_data["GROUP922"] = []
+        # for group922_text in self.extract_groups():
+        #     token922 = HydroTelegramTokenizer922(group922_text)
+        #     group922_parser = Group922Parser(token922)
+        #     parsed_data["GROUP922"].append(group922_parser.parse())
         return parsed_data
 
 
@@ -434,10 +441,23 @@ class WaterLevelChangeDecoder(AbstractDecoder):
         return self.create_dict('value', self._decode_value(value),'unit', 'cm')
     
 class TemperatureDecoder(AbstractDecoder):
+
+    def value_validator(self, value):
+        validator = value[1:].isdigit()
+
+        if validator == False:
+            return {'value': value,
+                    'water_temperature': float(int(value[1:3]) / 10),
+                    'air_temperature': None, 'unit': 'Cel'}
+        else:
+            return self.create_dict('value', value[1:], 'water_temperature',
+                                        self._decode_value_water(value),
+                                        'air_temperature', self._decode_value_air(value),
+                                        'unit', 'Cel')
+
     def decode(self, value):
-        return self.create_dict('value', value[1:], 'water_temperature', self._decode_value_water(value),
-                                'air_temperature', self._decode_value_air(value),'unit', 'Cel')
-    
+        return self.value_validator(value=value)
+
     def _decode_value_air(self, value):
         try:
             match value[3]:
@@ -453,7 +473,7 @@ class TemperatureDecoder(AbstractDecoder):
     
     def  _decode_value_water(self,value):
         try:
-           return float(int(value[1:3]))
+           return float(int(value[1:3])/10)
         except:
             return None
 
@@ -841,23 +861,3 @@ class DecoderFactory:
 
         else:
             raise ValueError(f"Decoder type '{type_decoder}' not recognized")
-
-
-d ={'date_telegram': '2023-06-04',
-    'time_telegram': '08:00:00', 
-    'index_station': '81041',
-    'gauges_telegram': '81041 04081 10262 20062 30265 41212 51910 56565 51305 82980 09911 98803 00023 92203 10012 20001 30022 92202 10012 20001 30022 96606 15042 20650 31725 40075 50714 90210='}
-m = {'date_telegram': '2023-06-04', 
-    'time_telegram': '08:00:00', 
-    'index_station': '81041',
-    'gauges_telegram':'33658 42984 03101 10261 20122 39805 40082 57003 555 1/044='}
-import pprint
-
-telegram_obj = TelegramFactory.create_telegram('hydro', **d)
-decoded_telegram = telegram_obj.decode_telegram()
-# pprint.pprint([x for x in telegram_obj.tokenizer.generate_tokens()])
-pprint.pprint(decoded_telegram)
-# telegram_obj_m = TelegramFactory.create_telegram('meteo', **m)
-# decoded_telegram_n = telegram_obj_m.decode_telegram()
-# pprint.pprint(decoded_telegram_n)
-

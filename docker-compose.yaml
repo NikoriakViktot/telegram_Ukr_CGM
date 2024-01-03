@@ -22,27 +22,27 @@ services:
       - mynetwork
     command:  sh -c "uvicorn main:app --reload --host 0.0.0.0"
   
-  listenin_api:
-    build:
-      context: ./telegram_listener
-      dockerfile: Dockerfile
-    restart: always
-    ports:
-      - "8002:8000"
-    volumes:
-     - ./telegram_listener:/app
-     
-    depends_on:
-      - app_selenium
-  
-    environment:
-      - PYTHONDONTWRITEBYTECODE=1
-      - DATABASE_URL=postgresql://postgres:password@db:5432/db
-      - REDIS_URL=redis://redis:6379/0
-    networks:
-      - mynetwork
-    # command: sh -c "uvicorn main:app --reload --host 0.0.0.0"
-    command:  sh -c "python main.py"
+#  listenin_api:
+#    build:
+#      context: ./telegram_listener
+#      dockerfile: Dockerfile
+#    restart: always
+#    ports:
+#      - "8002:8000"
+#    volumes:
+#     - ./telegram_listener:/app
+#
+#    depends_on:
+#      - app_selenium
+#
+#    environment:
+#      - PYTHONDONTWRITEBYTECODE=1
+#      - DATABASE_URL=postgresql://postgres:password@db:5432/db
+#      - REDIS_URL=redis://redis:6379/0
+#    networks:
+#      - mynetwork
+#    # command: sh -c "uvicorn main:app --reload --host 0.0.0.0"
+#    command:  sh -c "python main.py"
 
   db:
     image: postgres:13-alpine

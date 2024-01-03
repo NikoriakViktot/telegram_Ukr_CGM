@@ -1,11 +1,6 @@
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 
-from driver_selenium.soup_read_file import SoupHtmlFile
-
-from driver_selenium.html_telegrame import SaveHtmlFile
-from telegram_decode.gidro_kod_KC15 import KC15
-
 class DatabaseManager:
     def __init__(self, db):
         self.db = db

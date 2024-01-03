@@ -14,12 +14,11 @@ from driver_selenium.soup_read_file import SoupHtmlFile
 from .UKR_CGM_webelement import *
 from .html_telegrame import SaveHtmlFile
 from mongo_db.mongo_tools import MongoDb
-from telegram_decode.gidro_kod_KC15 import KC15
 from telegram_decode.class_telegrame import TelegramFactory
 
 MONGO_URL='mongodb://mongo:27017/'
 client = MongoClient(MONGO_URL)
-db = MongoDb
+db = MongoDb()
 
 def get_user_agent():
     return UserAgent(verify_ssl=False).random
@@ -330,12 +329,11 @@ class TelegramParser:
         cls.save_html()
         cls.restart_session()
         cls.process_telegram()
-        # save_report = MongoDb(cls.typeTelegram())
-        # save_report.save_document()
+
     
     @classmethod
     def process_telegram(cls):
-          # Шаг 1: парсимо HTML файл
+          # 1: парсимо HTML файл
         for report_today in SoupHtmlFile().report():
             id_teleg = report_today.id_telegrame
             date_tel = report_today.date_telegram
@@ -350,16 +348,16 @@ class TelegramParser:
                 "gauges_telegram": text_telegram}
             telegram_obj = TelegramFactory.create_telegram(cls.typeTelegram(), **data_telegram)
             if cls.typeTelegram() == 'hydro':
-                decoded_telegram = telegram_obj.parse()
+                decoded_telegram = telegram_obj.decode_telegram()
 
             else:  # 'meteo'
-                decoded_telegram = telegram_obj.relative_telegam()
+                decoded_telegram = telegram_obj.decode_telegram()
             document_mongo = {
             "id_telegram": id_teleg,
             "data": [data_telegram, decoded_telegram]}
             print(document_mongo)
-            # collection = db.db_manager.get_or_create_collection(cls.typeTelegram())
-            # db.db_manager.insert_document_if_not_exists(collection, document_mongo)
+            collection = db.db_manager.get_or_create_collection(cls.typeTelegram())
+            db.db_manager.insert_document_if_not_exists(collection, document_mongo)
     
 
 
