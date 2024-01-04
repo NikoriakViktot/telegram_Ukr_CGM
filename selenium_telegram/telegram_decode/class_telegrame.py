@@ -642,7 +642,7 @@ class WaterBodyConditionDecoder(BaseConditionDecoder):
     "78": {'intensity': False, 'description_en': 'Water intake below the station', 'description_uk': 'Забір води нижче поста'},
     "79": {'intensity': False, 'description_en': 'Water intake above the station stopped', 'description_uk': 'Забір води вище поста припинився'},
     "80": {'intensity': False, 'description_en': 'Water intake below the station stopped', 'description_uk': 'Забір води нижче поста припинився'},
-     "81": {'intensity': False, 'description_en': 'Water discharge above the station', 'description_uk': 'Скид води вище поста'},
+    "81": {'intensity': False, 'description_en': 'Water discharge above the station', 'description_uk': 'Скид води вище поста'},
     "82": {'intensity': False, 'description_en': 'Water discharge below the station', 'description_uk': 'Скид води нижче поста'},
     "83": {'intensity': False, 'description_en': 'Water discharge above the station stopped', 'description_uk': 'Скид води вище поста припинився'},
     "84": {'intensity': False, 'description_en': 'Water discharge below the station stopped', 'description_uk': 'Скид води нижче поста припинився'},

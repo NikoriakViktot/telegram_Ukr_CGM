@@ -37,10 +37,10 @@ scheduler = BackgroundScheduler()
 
 # Додавання задач до планувальника з використанням CronTrigger
 scheduler.add_job(send_telegram_post, args=['meteo'],
-                  trigger=CronTrigger(hour='0,3,6,9,12,15,18,21', minute=25))
+                  trigger=CronTrigger(hour='0,3,6,9,12,15,18,21', minute=25, second=0, day_of_week='*'))
 scheduler.add_job(send_telegram_post, args=['hydro'], 
-                  trigger=CronTrigger(hour=10, minute=50,
-                  timezone=pytz.timezone('Europe/Kiev')))
+                  trigger=CronTrigger(hour=10, minute=30, second=0,
+                                      day_of_week='*', timezone=pytz.timezone('Europe/Kiev')))
 # Запуск планувальника
 scheduler.start()
 

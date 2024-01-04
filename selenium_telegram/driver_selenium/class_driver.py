@@ -186,7 +186,7 @@ class TelegramParser:
     @classmethod
     def dateStartingInput(cls):
         value = cls.request.get('dateStartingInput')
-        if value is None:
+        if value is None or "string":
             return  cls.date_now
         else:
             return datetime.date.fromisoformat(value)
@@ -194,8 +194,8 @@ class TelegramParser:
     @classmethod
     def dateFinishInput(cls):
         value = cls.request.get('dateFinishInput')
-        if value is None:
-            return (cls.date_now - datetime.timedelta(2))
+        if value is None or "string":
+            return (cls.date_now - datetime.timedelta(5))
         else:
             return datetime.date.fromisoformat(value)
     
@@ -208,7 +208,7 @@ class TelegramParser:
     @classmethod
     def timeStartingInput(cls):
         value =  cls.request.get('timeStartingInput')
-        if value is None:
+        if value is None or "string":
             return cls.time_now
         else:
             return datetime.time.fromisoformat(value)
@@ -217,7 +217,7 @@ class TelegramParser:
     @classmethod
     def timeFinishInput(cls):
         value = cls.request.get('timeFinishInput')
-        if value is None:
+        if value is None or "string":
             return cls.time_now
         else:
             return datetime.time.fromisoformat(value)
@@ -226,12 +226,12 @@ class TelegramParser:
     @classmethod    
     def date_time_start_input(cls):
         start = cls.dateStartingInput().strftime(cls.format_spec_day) + ' ' + cls.timeStartingInput().strftime(cls.format_spec_time)
-        return (datetime.datetime.strptime(start, cls.dt_fmt) + datetime.timedelta(hours=2)).strftime(cls.dt_fmt)
+        return (datetime.datetime.strptime(start, cls.dt_fmt) + datetime.timedelta(hours=3)).strftime(cls.dt_fmt)
 
     @classmethod
     def date_time_finish_input(cls):
         finish = cls.dateFinishInput().strftime(cls.format_spec_day)  + ' ' + cls.timeFinishInput().strftime(cls.format_spec_time)
-        return (datetime.datetime.strptime(finish, cls.dt_fmt) + datetime.timedelta(hours=-2)).strftime(cls.dt_fmt)
+        return (datetime.datetime.strptime(finish, cls.dt_fmt) + datetime.timedelta(hours=-3)).strftime(cls.dt_fmt)
 
     @classmethod
     def input_menu(cls):
