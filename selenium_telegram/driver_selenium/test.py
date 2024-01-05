@@ -1,5 +1,7 @@
 import datetime
+import re
 
+import collections
 
 
 
@@ -116,4 +118,49 @@ if __name__ == '__main__':
 
     print(s.date_time_start_input())
     print(s.date_time_finish_input())
- 
+tel = '81801 01081 10350 20021 30360 428// 82234 00000='
+p= r'(?P<GROUP4>4\d+|4\d{2}//|4////)'
+
+class Tokenizer:
+    Token = collections.namedtuple('Token', ['type', 'value'])
+    pattern = r'(?P<WS>\s+)'
+
+    def __init__(self, text, index_station=None, date_time=None):
+        self.text = text
+        self._setup_paterns(index_station,date_time)
+
+
+    def _setup_paterns(self, index_station=None, date_time=None):
+        self.patterns = [
+            r'(?P<WS>\s+)',
+            r'(?P<INDEX>{})'.format(index_station),
+            r'(?P<DATE_TIME>{}\d{{1}})'.format(date_time),
+            r'(?P<GROUP1>1\d+)',
+            r'(?P<GROUP2>2\d+)',
+            r'(?P<GROUP3>3\d+)',
+            r'(?P<GROUP4>4\d+|4\d{2}//|4////)',
+            r'(?P<GROUP5>5\d+)',
+            r'(?P<GROUP6>6\d+)',
+            r'(?P<GROUP7>7\d+)',
+            r'(?P<GROUP8>8\d+)',
+            r'(?P<GROUP0>0\d{4}|0\d{3}/)',
+            r'(?P<GROUP988>988\d{2}\s0\d{4}|988\d{2}\s0\d{3}/)',
+            r'(?P<END>=)'
+        ]
+        self.pattern = '|'.join(self.patterns)
+
+    def generate_tokens(self):
+        master_pat = re.compile(self.pattern)
+        scanner = master_pat.scanner(self.text)
+        print(scanner.match())
+        for match_scaner in iter(scanner.match, None):
+            if match_scaner.lastgroup == 'WS':
+                continue
+            yield self.Token(match_scaner.lastgroup, match_scaner.group())
+
+
+
+f = Tokenizer(tel)
+v = f.generate_tokens()
+
+print(x for x in (x for x in v))

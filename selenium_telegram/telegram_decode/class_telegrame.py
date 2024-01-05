@@ -48,7 +48,7 @@ class HydroTelegramTokenizer(Tokenizer):
             r'(?P<GROUP1>1\d+)',
             r'(?P<GROUP2>2\d+)',
             r'(?P<GROUP3>3\d+)',
-            r'(?P<GROUP4>4\d+|4\d{2}//|4////)',
+            r'(?P<GROUP4>4\d{4}|4\d{2}//|4////|4....)',
             r'(?P<GROUP5>5\d+)',
             r'(?P<GROUP6>6\d+)',
             r'(?P<GROUP7>7\d+)',
@@ -83,7 +83,7 @@ class HydroTelegramTokenizer922(Tokenizer):
         r'(?P<GROUP922_1>1\d+)',
         r'(?P<GROUP922_2>2\d+)',
         r'(?P<GROUP922_3>3\d+)',
-        r'(?P<GROUP922_4>4\d+|4\d{2}//|4////)',
+        r'(?P<GROUP922_4>4\d{4}|4\d{2}//|4////|4....)',
         r'(?P<GROUP922_5>5\d+)',
         r'(?P<GROUP922_6>6\d+)',
         r'(?P<GROUP922_7>7\d+)',
@@ -860,3 +860,16 @@ class DecoderFactory:
 
         else:
             raise ValueError(f"Decoder type '{type_decoder}' not recognized")
+
+
+tel = {'id_teleg': '8180120240101080000', 'date_telegram': '2024-01-01',
+       'time_telegram': '08:00:00', 'index_station': '81801',
+       'gauges_telegram': '81801 01081 10350 20021 30360 428// 82234 00000='}
+
+telegram_obj = TelegramFactory.create_telegram('hydro', **data_telegram)
+if cls.typeTelegram() == 'hydro':
+    decoded_telegram = telegram_obj.decode_telegram()
+    print(decoded_telegram)
+
+
+
